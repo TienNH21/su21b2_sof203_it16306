@@ -8,37 +8,34 @@ import java.sql.ResultSet;
 import java.sql.PreparedStatement;
 import java.sql.DriverManager;
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.Date;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class QLMonHocService {
-    public List<MonHoc> getAll() {
+    // Thành Chung
+    // Chí Thủy
+    public List<MonHoc> getAll(int chuyenNganhId) {
         List<MonHoc> list = new ArrayList<>();
 
         try {
-            // Bước 1: Load driver
-            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+            String query = "SELECT * FROM mon_hoc "
+                    + " WHERE chuyen_nganh_id = ?";
+            PreparedStatement ps = JdbcUtil.prepare(query);
+            
+            ps.setInt(1, chuyenNganhId);
 
-            // Bước 2: Tạo connection
-            String dbUser = "sa", dbPassword = "Aa@123456",
-                dbUrl = "jdbc:sqlserver://localhost:1433;databaseName=quan_ly_mon_hoc";
-            Connection conn = DriverManager.getConnection(dbUrl, dbUser, dbPassword);
-
-            // Bước 3: PreparedStatement
-            String query = "SELECT * FROM mon_hoc";
-            PreparedStatement ps = conn.prepareStatement(query);
-
-            // Bước 4: Thực thi truy vấn
             ResultSet rs = ps.executeQuery();
             
-            // Bước 5: Bóc dữ liệu
             while ( rs.next() == true ) {
                 int id = rs.getInt("id");
                 String tenMH = rs.getString("ten_mon_hoc");
                 String maMH = rs.getString("ma_mon_hoc");
                 Date ngayTao = rs.getDate("ngay_tao");
-                int chuyenNganhId = rs.getInt("chuyen_nganh_id");
+                int cnId = rs.getInt("chuyen_nganh_id");
 
-                MonHoc mh = new MonHoc(id, maMH, tenMH, ngayTao, chuyenNganhId);
+                MonHoc mh = new MonHoc(id, maMH, tenMH, ngayTao, cnId);
                 list.add(mh);
             }
         } catch (Exception e) {
@@ -50,19 +47,11 @@ public class QLMonHocService {
     
     public MonHoc them(MonHoc mh) {
         try {
-            Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
-            
-            String dbUser = "sa", dbPass = "Aa@123456",
-                dbUrl = "jdbc:sqlserver://localhost:1433;"
-                    + "databaseName=quan_ly_mon_hoc";
-            
-            Connection conn = DriverManager.getConnection(dbUrl, dbUser, dbPass);
-            
             String query = "INSERT INTO mon_hoc"
                 + "(ten_mon_hoc, ma_mon_hoc, ngay_tao, chuyen_nganh_id) "
                 + " OUTPUT Inserted.ID VALUES (?, ?, ?, ?)";
             
-            PreparedStatement ps = conn.prepareStatement(query);
+            PreparedStatement ps = JdbcUtil.prepare(query);
             
             ps.setString(1, mh.getTenMH());
             ps.setString(2, mh.getMaMH());
@@ -87,8 +76,6 @@ public class QLMonHocService {
             System.out.println("id: " + id);
             
             mh.setId(id);
-
-            conn.close();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -97,10 +84,39 @@ public class QLMonHocService {
     }
     
     public boolean capNhat(MonHoc mh) {
+        try {
+            java.sql.Date ngayTaoSql = new java.sql.Date( mh.getNgayTao().getTime() );
+            String query = "UPDATE mon_hoc SET ten_mon_hoc = ?, ma_mon_hoc = ?, ngay_tao = ?, "
+                + "chuyen_nganh_id = ? WHERE id = ?";
+
+            PreparedStatement ps = JdbcUtil.prepare(query);            
+            
+            ps.setString(1, mh.getTenMH());
+            ps.setString(2, mh.getMaMH());
+
+            ps.setDate(3, ngayTaoSql);
+
+            ps.setInt(4, mh.getChuyenNganhId());
+            ps.setInt(5, mh.getId());
+            
+            ps.executeUpdate();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return true;
     }
     
     public boolean xoa(int id) {
+        String query = "DELETE FROM mon_hoc WHERE id = ?";
+        try {
+            PreparedStatement ps = JdbcUtil.prepare(query);
+            ps.setInt(1, id);
+            
+            ps.executeUpdate();
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        }
+        
         return true;
     }
 }
